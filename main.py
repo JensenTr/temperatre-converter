@@ -1,7 +1,7 @@
 """
     Temperature Converter System
 
-    - Jensen Trillo, **v0.2**, 24/05/2024
+    - Jensen Trillo, **v0.3**, 24/05/2024
     - ``Python 3.11.6``
 """
 import customtkinter as ctk
@@ -19,24 +19,47 @@ class GUI(ctk.CTk):
     def __kill_handler(self):
         self.quit()
 
-    @staticmethod
-    def __c_to_f(c: float) -> float:
-        return (c * (9/5)) + 32
-
-    @staticmethod
-    def __f_to_c(f: float) -> float:
-        return (f - 32) * (5/9)
-
     def __init__(self):
         class Converter(ctk.CTkFrame):
-            def __init__(self, master):
-                def validate(s: str, action: str):
-                    if int(action) == 1:  # Input
-                        # Allow periods + do not count them in total length + only one period
-                        return s.replace('.', '').isdigit() and len(s.replace('.', '')) < 6 and s.count('.') < 2
-                    else:  # Deletion
-                        return True
+            @staticmethod
+            def __c_to_f(c: float) -> float:
+                return (c * (9 / 5)) + 32
 
+            @staticmethod
+            def __f_to_c(f: float) -> float:
+                return (f - 32) * (5 / 9)
+
+            @staticmethod
+            def __validate(s: str, action: str, index: int):
+                if int(action) == 1:  # Input
+                    if s == 'Too big!':
+                        return True
+                    # Allow minus sign or number on first character
+                    if int(index) == 0 and (s == '-' or s.isdigit()):
+                        return True
+                    # Count length excluding '-' and '.', ensure only one minus or period
+                    elif (new := s.removeprefix('-').replace('.', '')).isdigit() and len(new) < 6 and \
+                            s.count('.') <= 1:
+                        return True
+                    else:
+                        return False
+                else:  # Deletion
+                    return True
+
+            def convert_binding(self, obj: ctk.CTkEntry, convert: ctk.CTkEntry, f_to_c: bool = False):
+                def c(_):
+                    if (e := obj.get()) != '' and e != '-':  # Not empty or minus sign
+                        if not self.__validate(str(
+                                insert := round(self.__f_to_c(float(e)) if f_to_c else self.__c_to_f(float(e)), 1)),
+                                1, 1):
+                            insert = 'Too big!'
+                    else:
+                        insert = ''
+                    convert.delete(0, 'end')
+                    convert.insert('end', insert)
+                obj.bind('<KeyRelease>', c)
+
+            def __init__(self, master):
                 super().__init__(master, 380, 350, 0, fg_color='transparent')
                 self.grid_propagate(False), self.grid_anchor('center')
                 args = [
@@ -48,15 +71,16 @@ class GUI(ctk.CTk):
                     'font': (JB, 26),
                     'justify': 'center',
                     'validate': 'key',
-                    'validatecommand': (master.register(validate), '%P', '%d'),
+                    'validatecommand': (master.register(self.__validate), '%P', '%d', '%i'),
                 }
                 celsius = ctk.CTkEntry(self, *args, **kwargs)
                 fahrenheit = ctk.CTkEntry(self, *args, **kwargs)
+                self.convert_binding(celsius, fahrenheit), celsius.grid(row=0, column=0)
+                self.convert_binding(fahrenheit, celsius, True), fahrenheit.grid(row=0, column=2)
                 #
-                celsius.grid(row=0, column=0)
                 # Seperator
                 ctk.CTkLabel(self, text='<>', font=(JB, 18), text_color='#000000').grid(row=0, column=1, padx=25)
-                fahrenheit.grid(row=0, column=2)
+                #
                 # Symbol images (after 1ms to get proper X & Y)
                 celsius_img = ctk.CTkLabel(self, text='', image=ctk.CTkImage(Image.open('assets/celsius.png'),
                                                                              size=(32, 32)))
